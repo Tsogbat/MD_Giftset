@@ -13,7 +13,8 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "snapshot": "tsx scripts/snapshot.ts",
-    "seed:catalog": "tsx scripts/seed-catalog.ts"
+    "seed:catalog": "tsx scripts/seed-catalog.ts",
+    "seed:rules": "tsx scripts/seed-rules.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

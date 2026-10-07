@@ -23,8 +23,8 @@ export const RecipeSchema = z.object({
   pitchMn: z.string().optional(),
   /** Audience segment (e.g. "Kids"); segment exclusions in Rules apply to it. */
   segment: z.string().optional(),
-  /** Set-code group: numbering runs within it (TG-K01…, TG-Y01…). */
-  codeGroup: z.string().optional(),
+  /** Optional 1–3 letter group inside the prefix; numbering runs within it (TG-K01…, TG-Y01…). Usually empty. */
+  codeGroup: z.string().max(3).optional(),
   /** How many sets of this recipe. */
   boxes: z.number().int().min(1),
   /** Widen/narrow the best-seller cut for this recipe's hero (default Rules.hero.topShare). */
@@ -48,6 +48,8 @@ export const BatchSchema = z.object({
   tolerance: z.number().nonnegative(),
   /** Preferred closeness (scores better), optional. */
   close: z.number().nonnegative().optional(),
+  /** What the customer pays for one set (₮, VAT incl.). Mystery box: the box price; default = the set's contents value. */
+  sellPrice: z.number().positive().optional(),
   /** Hard price range every set must stay inside, optional. */
   hardRange: z.tuple([z.number(), z.number()]).optional(),
   recipes: z.array(RecipeSchema).min(1),
@@ -119,6 +121,8 @@ export const RulesSchema = z.object({
     categ: z.array(Pattern),
     name: z.array(Pattern),
     brand: z.array(Pattern),
+    /** Exact SKU codes never used (e.g. "looks cheap" after a photo review). */
+    codes: z.array(z.object({ code: z.string(), reason: z.string() })),
   }),
   /** Extra name exclusions for one audience segment (e.g. Kids: nothing sharp, no glass). */
   segmentExcludes: z.array(z.object({ segment: z.string(), label: z.string(), pattern: z.string() })),

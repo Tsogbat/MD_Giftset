@@ -80,6 +80,8 @@ export function ineligibleReason(p: RawProduct, rules: Rules): string | null {
   if (n) return n.label;
   const b = rules.exclusions.brand.find((x) => rx(x.pattern).test(p.brand ?? ""));
   if (b) return b.label;
+  const c2 = rules.exclusions.codes.find((x) => x.code === p.code);
+  if (c2) return `excluded SKU: ${c2.reason}`;
   return null;
 }
 

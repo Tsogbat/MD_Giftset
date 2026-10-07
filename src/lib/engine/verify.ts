@@ -95,7 +95,8 @@ export function verify(plan: Plan, sets: BuiltSet[], stats: Record<string, PoolS
       rules.exclusions.topCategories.includes(i.categ.split(" / ")[0]) ||
       rules.exclusions.categ.some((p) => rx(p.pattern).test(i.categ)) ||
       rules.exclusions.name.some((p) => rx(p.pattern).test(i.name)) ||
-      rules.exclusions.brand.some((p) => rx(p.pattern).test(i.brand ?? "")),
+      rules.exclusions.brand.some((p) => rx(p.pattern).test(i.brand ?? "")) ||
+      rules.exclusions.codes.some((c) => c.code === i.code),
   );
   check(
     `No excluded categories, names or brands; every item ${fmt(rules.itemPrice[0])}–${fmt(rules.itemPrice[1])}₮`,

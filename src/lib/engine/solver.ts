@@ -552,8 +552,9 @@ export function allocate(boxes: Box[], bins: Bin[], rules: Rules): Map<Box, Arra
 
 /** Set codes run on through the recipes of a batch, within each code group: RB199-01…, TG-K01…, TG-Y01… */
 export function setCode(batch: Batch, recipe: Recipe, k: number): string {
-  const group = recipe.codeGroup ?? "";
-  const before = batch.recipes.slice(0, batch.recipes.indexOf(recipe)).filter((r) => (r.codeGroup ?? "") === group);
+  const groupOf = (r: Recipe) => (r.codeGroup && r.codeGroup !== batch.prefix ? r.codeGroup : "");
+  const group = groupOf(recipe);
+  const before = batch.recipes.slice(0, batch.recipes.indexOf(recipe)).filter((r) => groupOf(r) === group);
   const n = before.reduce((a, r) => a + r.boxes, 0) + k;
   return `${batch.prefix}-${group}${String(n).padStart(2, "0")}`;
 }

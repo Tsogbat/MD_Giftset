@@ -69,7 +69,7 @@ export function mysteryBoxRules(): Rules {
     reuse: { maxUsesPerSku: 3, maxShared: 2, reuseWeight: 0.02, maxFamilyUses: 4, familyWeight: 0.15 },
     stock: { sites: ["WH", "CEN", "ENC"], oneSitePerSet: true, preferSite: "WH", allocate: true },
     packaging: { enabled: false, bags: PAPER_BAGS, topFold: 20, girthSlack: 10 },
-    exclusions: { topCategories: [...EXCLUDED_TOP], categ: [...PLAIN_PENS_AND_PENCILS, ...BASE_CATEG_EXCLUSIONS], name: [...BASE_NAME_EXCLUSIONS], brand: [...BASE_BRAND_EXCLUSIONS] },
+    exclusions: { topCategories: [...EXCLUDED_TOP], categ: [...PLAIN_PENS_AND_PENCILS, ...BASE_CATEG_EXCLUSIONS], name: [...BASE_NAME_EXCLUSIONS], brand: [...BASE_BRAND_EXCLUSIONS], codes: [] },
     segmentExcludes: [{ segment: "Kids", label: "Kids: nothing sharp or glass, no hair dye", pattern: KIDS_EXCLUDE }],
     search: { attempts: 500, enoughPerfect: 30, heroesTried: 3, maxHeroesTried: 15, seed: 199, seedTries: 5, minSlotPool: 8 },
   };
@@ -86,7 +86,7 @@ export function giftBundleRules(): Rules {
     reuse: { maxUsesPerSku: 1, reuseWeight: 0.02, maxFamilyUses: 2, familyWeight: 0.15 },
     stock: { sites: ["WH", "CEN", "ENC"], oneSitePerSet: false, preferSite: "WH", allocate: false },
     packaging: { enabled: true, bags: PAPER_BAGS, topFold: 20, girthSlack: 10 },
-    exclusions: { topCategories: [...EXCLUDED_TOP], categ: [...ALL_WRITING_INSTRUMENTS, ...BASE_CATEG_EXCLUSIONS], name: [...BASE_NAME_EXCLUSIONS], brand: [...BASE_BRAND_EXCLUSIONS] },
+    exclusions: { topCategories: [...EXCLUDED_TOP], categ: [...ALL_WRITING_INSTRUMENTS, ...BASE_CATEG_EXCLUSIONS], name: [...BASE_NAME_EXCLUSIONS], brand: [...BASE_BRAND_EXCLUSIONS], codes: [] },
     segmentExcludes: [{ segment: "Kids", label: "Kids: nothing sharp or glass, no hair dye", pattern: KIDS_EXCLUDE }],
     search: { attempts: 500, enoughPerfect: 30, heroesTried: 3, maxHeroesTried: 15, seed: 2026, seedTries: 5, minSlotPool: 8 },
   };
@@ -257,7 +257,7 @@ const RB_RECIPES: Recipe[] = [
 ];
 
 export function redBox199kBatch(): Batch {
-  return { key: "199k", label: "Red Box 199k", prefix: "RB199", target: 199_000, tolerance: 2_000, recipes: structuredClone(RB_RECIPES) };
+  return { key: "199k", label: "Red Box 199k", prefix: "RB199", target: 199_000, sellPrice: 199_000, tolerance: 2_000, recipes: structuredClone(RB_RECIPES) };
 }
 
 // --- Tsagaan gar 22.5K recipes ------------------------------------------------------------------
