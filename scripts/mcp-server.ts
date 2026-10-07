@@ -133,4 +133,13 @@ server.registerTool(
   safe(async (a) => text(await T.financeTool(ctx, a))),
 );
 
+server.registerTool(
+  "export_version",
+  {
+    description: "Write the Mongolian Excel / A4 PDF / HTML report of a version (latest by default) into its own exports folder. Only when the user asks for files.",
+    inputSchema: { version: z.number().int().optional(), formats: z.array(z.enum(["xlsx", "html", "pdf"])).optional() },
+  },
+  safe(async (a) => text(await T.exportVersion(ctx, a))),
+);
+
 await server.connect(new StdioServerTransport());

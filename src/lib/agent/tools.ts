@@ -10,6 +10,9 @@ import { quantile } from "../engine/solver";
 import { matches } from "../engine/solver";
 import type { Plan, Rules } from "../engine/types";
 import { finance, getPlan, getVersion, savePlan, saveVersion, checksOf, type Brief } from "../projects";
+import { loadExport } from "../exports/data";
+import { writeXlsx } from "../exports/xlsx";
+import { writeHtml, writePdf } from "../exports/pdf";
 
 export type ToolCtx = { projectId: number; user: string };
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
@@ -216,4 +219,13 @@ export async function financeTool(ctx: ToolCtx, input: { version?: number }): Pr
   const v = await getVersion(ctx.projectId, input.version);
   if (!v) return "No version built yet.";
   return json(v.finance);
+}
+
+export async function exportVersion(ctx: ToolCtx, input: { version?: number; formats?: Array<"xlsx" | "html" | "pdf"> }): Promise<string> {
+  const v = await getVersion(ctx.projectId, input.version);
+  if (!v) return "No version built yet.";
+  const d = await loadExport(ctx.projectId, v.number);
+  const out: string[] = [];
+  for (const f of input.formats ?? ["xlsx", "pdf", "html"]) out.push(f === "xlsx" ? await writeXlsx(d) : f === "html" ? await writeHtml(d) : await writePdf(d));
+  return [`Written for V${v.number}:`, ...out, "The user can also download them from the Export tab."].join("\n");
 }

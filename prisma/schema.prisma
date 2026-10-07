@@ -167,6 +167,7 @@ model GiftSetItem {
   role       String // hero | filler | bonus | team
   slot       String?
   code       String
+  barcode    String?
   productId  Int?
   name       String
   brand      String?
@@ -174,6 +175,10 @@ model GiftSetItem {
   price      Float
   landedCost Float?
   value      Float? // bonus value (not sold)
+  weekly     Float?
+  cover      Float?
+  dims       String? // "W×H×D" mm from img.artbox.kr
+  note       String? // e.g. bonus expiry flag, team-set remark
   site       String?
   bin        String?
   qty        Int     @default(1)
