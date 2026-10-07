@@ -1,0 +1,238 @@
+// Gift Set Studio — app database (SQLite via libsql).
+// Odoo is never written to; it is copied into Snapshot tables and every build pins one snapshot.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// One gift-set job (e.g. "Red Box Oct 2026"). There is no type column: what kind of set it is
+/// comes out of the agent's questions and lives in `rules` (RuleSet JSON).
+model Project {
+  id         Int       @id @default(autoincrement())
+  slug       String    @unique
+  name       String
+  brief      Json
+  status     String    @default("brief") // brief | interview | proposal | building | built
+  rules      Json? // current RuleSet (zod: src/lib/engine/types.ts)
+  recipes    Json? // current Recipe[]
+  sessionId  String? // claude -p session, resumed every turn
+  snapshotId Int?
+  lockedBy   String? // name of the person whose agent turn is running
+  lockedAt   DateTime?
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  snapshot   Snapshot? @relation(fields: [snapshotId], references: [id])
+  turns      Turn[]
+  answers    Answer[]
+  versions   Version[]
+  uploads    Upload[]
+  ledger     LedgerEntry[]
+}
+
+/// One message in the project conversation: the user's brief/answers/chat, or the agent's turn result.
+model Turn {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  seq        Int
+  role       String // user | agent | system
+  author     String
+  kind       String // brief | answers | chat | questions | proposal | built | message | error
+  payload    Json
+  events     Json? // tool calls streamed during an agent turn
+  durationMs Int?
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, seq])
+}
+
+model Answer {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  turnId     Int?
+  questionId String
+  question   String
+  value      Json
+  author     String
+  createdAt  DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+/// Frozen copy of the Odoo facts a build uses, so rebuilds are reproducible.
+model Snapshot {
+  id         Int               @id @default(autoincrement())
+  takenAt    DateTime          @default(now())
+  salesFrom  DateTime?
+  salesTo    DateTime?
+  products   Int               @default(0)
+  status     String            @default("running") // running | ready | failed
+  error      String?
+  createdBy  String
+  items      SnapshotProduct[]
+  stock      SnapshotStock[]
+  projects   Project[]
+}
+
+model SnapshotProduct {
+  id          Int       @id @default(autoincrement())
+  snapshotId  Int
+  productId   Int
+  tmplId      Int
+  code        String // default_code, 8 digits zero-padded, text
+  barcode     String?
+  name        String
+  brand       String?
+  categ       String? // product_category.complete_name (MIS 5-level path)
+  listPrice   Float
+  landedCost  Float?
+  costPo      String?
+  active      Boolean
+  saleOk      Boolean
+  sold        Float     @default(0)
+  firstIn     DateTime?
+  weeksOnSale Float     @default(1)
+  weeklySales Float     @default(0)
+  avail       Float     @default(0) // pickable units over all sites
+  weeksCover  Float     @default(0)
+  newArrival  Boolean   @default(false)
+  snapshot    Snapshot  @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@unique([snapshotId, productId])
+  @@index([snapshotId, code])
+}
+
+model SnapshotStock {
+  id         Int      @id @default(autoincrement())
+  snapshotId Int
+  productId  Int
+  site       String // WH | CEN | ENC | SILK
+  locationId Int
+  bin        String
+  location   String
+  qty        Float
+  snapshot   Snapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+
+  @@index([snapshotId, productId])
+}
+
+/// V1, V2 … of a project. Sets, checks and finance are frozen at build time; restore = copy into a new version.
+model Version {
+  id          Int       @id @default(autoincrement())
+  projectId   Int
+  number      Int
+  label       String?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  snapshotId  Int?
+  rules       Json
+  recipes     Json
+  checks      Json?
+  finance     Json?
+  diagnostics Json?
+  seed        Int?
+  committed   Boolean   @default(false) // holds stock in the ledger
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sets        GiftSet[]
+
+  @@unique([projectId, number])
+}
+
+model GiftSet {
+  id        Int           @id @default(autoincrement())
+  versionId Int
+  position  Int
+  code      String // e.g. RB199-01
+  tier      String? // e.g. "199k"
+  recipeKey String?
+  recipe    String?
+  site      String?
+  total     Float
+  bag       String?
+  source    String        @default("built") // built | team (as given, never changed)
+  label     String?
+  version   Version       @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  items     GiftSetItem[]
+}
+
+model GiftSetItem {
+  id         Int     @id @default(autoincrement())
+  setId      Int
+  position   Int
+  role       String // hero | filler | bonus | team
+  slot       String?
+  code       String
+  productId  Int?
+  name       String
+  brand      String?
+  categ      String?
+  price      Float
+  landedCost Float?
+  value      Float? // bonus value (not sold)
+  site       String?
+  bin        String?
+  qty        Int     @default(1)
+  set        GiftSet @relation(fields: [setId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+}
+
+/// Units promised to a committed version, so other projects can't reuse them. Odoo itself is never written.
+model LedgerEntry {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  versionId Int
+  code      String
+  productId Int
+  site      String
+  bin       String
+  qty       Int
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([productId, site])
+}
+
+/// Rules the user taught once ("no D.Tale", "USB-C only") so the agent never asks again.
+model MemoryRule {
+  id              Int      @id @default(autoincrement())
+  title           String
+  text            String // human wording shown in /rules and given to the agent
+  rule            Json? // machine form (zod RuleSet patch), optional
+  enabled         Boolean  @default(true)
+  sourceProjectId Int?
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Upload {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  kind      String // team_sets | bonus_pool | other
+  filename  String
+  path      String
+  parsed    Json?
+  createdBy String
+  createdAt DateTime @default(now())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+/// img.artbox.kr facts per SKU: package size (mm, longest first) and photo.
+model CatalogItem {
+  code      String   @id
+  found     Boolean
+  sizeRaw   String?
+  dim1      Float?
+  dim2      Float?
+  dim3      Float?
+  imgUrl    String?
+  krName    String?
+  photo     String? // data/photos/<code>.jpg
+  fetchedAt DateTime @default(now())
+}
