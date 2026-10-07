@@ -32,6 +32,16 @@ export default function AgentPanel({ data, projectId, reload, openVersion }: Pro
         <div ref={bottom} />
       </div>
       {error ? <p className="bad small">{error}</p> : null}
+      {data.project.uploads.length ? (
+        <div className="uploads small">
+          Files:{" "}
+          {data.project.uploads.map((u) => (
+            <span key={u.id} className="pill" title={`#${u.id} · ${u.kind} · ${u.createdBy}`}>
+              {u.filename}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <form
         className="chat"
         onSubmit={(e) => {
@@ -54,9 +64,32 @@ export default function AgentPanel({ data, projectId, reload, openVersion }: Pro
             }
           }}
         />
-        <button className="primary" disabled={running || !chat.trim()}>
-          Send
-        </button>
+        <div className="chat-btns">
+          <button className="primary" disabled={running || !chat.trim()}>
+            Send
+          </button>
+          <label className={`btn small ${running ? "disabled" : ""}`} title="Attach an .xlsx: team-made sets to include as given, or a sample / bonus list">
+            Attach
+            <input
+              type="file"
+              accept=".xlsx"
+              hidden
+              disabled={running}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                const fd = new FormData();
+                fd.append("file", file);
+                const r = await fetch(`/api/projects/${projectId}/uploads`, { method: "POST", body: fd });
+                const j = await r.json();
+                if (!r.ok) setError(j.error ?? "Upload failed");
+                else setChat((c) => `${c ? c + "\n" : ""}I attached "${j.filename}" (upload #${j.id}): `);
+                reload();
+              }}
+            />
+          </label>
+        </div>
       </form>
     </div>
   );

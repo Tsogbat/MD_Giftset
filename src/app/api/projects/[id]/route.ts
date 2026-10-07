@@ -4,7 +4,7 @@ import { getPlan } from "@/lib/projects";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const id = Number((await ctx.params).id);
-  const project = await prisma.project.findUnique({ where: { id }, include: { snapshot: true } });
+  const project = await prisma.project.findUnique({ where: { id }, include: { snapshot: true, uploads: { select: { id: true, filename: true, kind: true, createdBy: true }, orderBy: { id: "asc" } } } });
   if (!project) return Response.json({ error: "not found" }, { status: 404 });
   const [turns, versions, plan] = await Promise.all([
     prisma.turn.findMany({ where: { projectId: id }, orderBy: { seq: "asc" } }),

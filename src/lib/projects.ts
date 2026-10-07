@@ -4,6 +4,7 @@ import { latestSnapshot } from "./snapshot";
 import { giftBundleRules } from "./engine/presets";
 import { PlanSchema, RulesSchema, BatchSchema, type Batch, type BuiltSet, type Check, type Plan, type Rules } from "./engine/types";
 import type { BuildResult } from "./engine/run";
+import { enrichTeam, teamChecks, teamSetsOf } from "./team";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type Brief = {
@@ -112,8 +113,18 @@ export async function savePlan(projectId: number, input: SavePlanInput): Promise
 // --- Finance (redbox_finance.py: VAT 10% is in the price; margin = gross / net) ----------------
 export type FinanceRow = { batch: string; label: string; sets: number; revenue: number; vat: number; net: number; contentsValue: number; landed: number; gross: number; margin: number; missingCost: number };
 
-export function finance(plan: Plan, sets: BuiltSet[]): { rows: FinanceRow[]; total: FinanceRow } {
-  const rows = plan.batches.map((b: Batch) => {
+export type TeamFinanceInput = Array<{ tier: string; sellPrice?: number; sets: Array<{ items: Array<{ qty: number; price: number | null; landed: number | null }> }> }>;
+
+export function finance(plan: Plan, sets: BuiltSet[], team: TeamFinanceInput = []): { rows: FinanceRow[]; total: FinanceRow } {
+  const teamRows = team.map((t) => {
+    const totals = t.sets.map((s) => s.items.reduce((a, i) => a + (i.price ?? 0) * i.qty, 0));
+    const revenue = t.sellPrice ? t.sellPrice * t.sets.length : totals.reduce((a, v) => a + v, 0);
+    const net = revenue / 1.1;
+    const landed = t.sets.reduce((a, s) => a + s.items.reduce((x, i) => x + (i.landed ?? 0) * i.qty, 0), 0);
+    const missingCost = t.sets.reduce((a, s) => a + s.items.filter((i) => i.landed == null).length, 0);
+    return { batch: `team:${t.tier}`, label: `${t.tier} (team)`, sets: t.sets.length, revenue, vat: revenue - net, net, contentsValue: totals.reduce((a, v) => a + v, 0), landed, gross: net - landed, margin: net ? (net - landed) / net : 0, missingCost };
+  });
+  const builtRows = plan.batches.map((b: Batch) => {
     const ss = sets.filter((s) => s.batch === b.key);
     const revenue = ss.reduce((a, s) => a + (b.sellPrice ?? s.total), 0);
     const net = revenue / 1.1;
@@ -121,6 +132,7 @@ export function finance(plan: Plan, sets: BuiltSet[]): { rows: FinanceRow[]; tot
     const missingCost = ss.reduce((a, s) => a + s.items.filter((i) => i.landed == null).length, 0);
     return { batch: b.key, label: b.label, sets: ss.length, revenue, vat: revenue - net, net, contentsValue: ss.reduce((a, s) => a + s.total, 0), landed, gross: net - landed, margin: net ? (net - landed) / net : 0, missingCost };
   });
+  const rows = [...builtRows, ...teamRows];
   const sum = (k: keyof FinanceRow) => rows.reduce((a, r) => a + (r[k] as number), 0);
   const net = sum("net");
   const total = { batch: "all", label: "Total", sets: sum("sets"), revenue: sum("revenue"), vat: sum("vat"), net, contentsValue: sum("contentsValue"), landed: sum("landed"), gross: sum("gross"), margin: net ? sum("gross") / net : 0, missingCost: sum("missingCost") };
@@ -131,7 +143,9 @@ export function finance(plan: Plan, sets: BuiltSet[]): { rows: FinanceRow[]; tot
 export async function saveVersion(projectId: number, plan: Plan, result: Extract<BuildResult, { ok: true }>, createdBy: string, label?: string) {
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
   const last = await prisma.version.findFirst({ where: { projectId }, orderBy: { number: "desc" } });
-  const fin = finance(plan, result.sets);
+  const team = project.snapshotId ? await enrichTeam(project.snapshotId, await teamSetsOf(projectId)) : [];
+  const fin = finance(plan, result.sets, team);
+  const checks = [...result.checks, ...teamChecks(team)];
   const version = await prisma.version.create({
     data: {
       projectId,
@@ -141,7 +155,7 @@ export async function saveVersion(projectId: number, plan: Plan, result: Extract
       snapshotId: project.snapshotId,
       rules: plan.rules as unknown as Prisma.InputJsonValue,
       recipes: plan.batches as unknown as Prisma.InputJsonValue,
-      checks: result.checks as unknown as Prisma.InputJsonValue,
+      checks: checks as unknown as Prisma.InputJsonValue,
       finance: fin as unknown as Prisma.InputJsonValue,
       diagnostics: { stats: result.stats, recipes: result.diagnostics.recipes } as unknown as Prisma.InputJsonValue,
       seed: result.seed,
@@ -184,6 +198,41 @@ export async function saveVersion(projectId: number, plan: Plan, result: Extract
       },
     });
   }
+  // team-made sets, exactly as given
+  let position = result.sets.length;
+  for (const t of team)
+    for (const [n, s] of t.sets.entries()) {
+      await prisma.giftSet.create({
+        data: {
+          versionId: version.id,
+          position: position++,
+          code: `${t.prefix}-${String(n + 1).padStart(2, "0")}`,
+          tier: t.tier,
+          recipeKey: null,
+          recipe: s.label,
+          site: null,
+          total: s.items.reduce((a, i) => a + (i.price ?? 0) * i.qty, 0),
+          source: "team",
+          label: s.label,
+          items: {
+            create: s.items.map((i, k) => ({
+              position: k,
+              role: "team",
+              code: i.code,
+              barcode: i.barcode,
+              productId: i.productId,
+              name: i.name,
+              brand: i.brand,
+              categ: i.categ,
+              price: i.price ?? 0,
+              landedCost: i.landed,
+              qty: i.qty,
+              note: i.stock < i.qty ? `үлдэгдэл ${i.stock}` : null,
+            })),
+          },
+        },
+      });
+    }
   await prisma.project.update({ where: { id: projectId }, data: { status: "built" } });
   return version;
 }

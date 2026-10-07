@@ -14,6 +14,8 @@ const RULES: Array<{ title: string; text: string; rule?: unknown }> = [
   { title: "Team sets exactly as given", text: "Sets the team made by hand (e.g. Red Box 299k/499k, Tsagaan gar 45K) are included exactly as given: never substitute, re-price or re-plan them, even when their stock is short." },
   { title: "Food only from samples", text: "Food bonus items may come only from the sample/bonus file, never from our own food stock." },
   { title: "MIS names verbatim", text: "Keep MIS product names, category paths and brand names exactly as spelled (e.g. \"Random Figure\")." },
+  { title: "Bonus: no pricey single lip item", text: "Bonus/sample items: at most one lip product per box, and no single expensive lip item carrying the top tier's bonus (IsoI, GRAFEN were removed); the top tier gets 3+ smaller items instead. No two colours or flavours of one sample in a box." },
+  { title: "Bonus bands rise with the tier", text: "With bonus items, every box of a tier is worth about the same (spread ≤ 2,000₮), and the bonus grows with the tier (Red Box: 199k 15–20k, 299k 25–30k, 499k 75–80k)." },
   { title: "Exact value not needed", text: "A set's contents value may be anywhere within ± 2,000₮ of the target; hitting it exactly is not needed." },
 ];
 

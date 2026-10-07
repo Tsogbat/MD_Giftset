@@ -4,6 +4,7 @@ import { ensureCatalog } from "../catalog";
 import { buildItems, type Bin, type Item, type RawProduct } from "./items";
 import { allocate, bagFor, buildAll, combos, makePlans, Stuck, toBuiltSets, type PoolStats } from "./solver";
 import { verify } from "./verify";
+import { enrichTeam, teamSetsOf, teamUsage } from "../team";
 import type { BuiltSet, Check, Plan } from "./types";
 
 export type Inputs = { products: RawProduct[]; bins: Bin[]; salesTo: Date; items: Item[] };
@@ -19,6 +20,22 @@ export async function loadInputs(plan: Plan, snapshotId: number, projectId: numb
   const bins: Bin[] = stock
     .map((s) => ({ pid: s.productId, site: s.site, locationId: s.locationId, bin: s.bin, qty: s.qty - (promised.get(`${s.productId}|${s.site}|${s.bin}`) ?? 0) }))
     .filter((b) => b.qty > 0);
+  // team-made sets are included as given, so their units are not available to the solver
+  if (projectId) {
+    const team = await teamSetsOf(projectId);
+    if (team.length) {
+      const need = teamUsage(await enrichTeam(snapshotId, team));
+      for (const [pid, n0] of need) {
+        let n = n0;
+        for (const b of bins.filter((x) => x.pid === pid).sort((a, c) => Number(a.site !== "WH") - Number(c.site !== "WH") || c.qty - a.qty)) {
+          const take = Math.min(n, b.qty);
+          b.qty -= take;
+          n -= take;
+          if (!n) break;
+        }
+      }
+    }
+  }
 
   let dims = new Map<string, [number, number, number]>();
   if (plan.rules.packaging.enabled) {

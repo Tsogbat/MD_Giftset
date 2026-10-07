@@ -13,6 +13,9 @@ import { finance, getPlan, getVersion, savePlan, saveVersion, checksOf, type Bri
 import { loadExport } from "../exports/data";
 import { writeXlsx } from "../exports/xlsx";
 import { writeHtml, writePdf } from "../exports/pdf";
+import { previewUpload } from "../uploads";
+import { importTeamSets, type TeamImportInput } from "../team";
+import { applyBonus, classifyBonus, importBonusPool, type BonusImportInput } from "../bonus";
 
 export type ToolCtx = { projectId: number; user: string };
 type Content = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
@@ -228,4 +231,45 @@ export async function exportVersion(ctx: ToolCtx, input: { version?: number; for
   const out: string[] = [];
   for (const f of input.formats ?? ["xlsx", "pdf", "html"]) out.push(f === "xlsx" ? await writeXlsx(d) : f === "html" ? await writeHtml(d) : await writePdf(d));
   return [`Written for V${v.number}:`, ...out, "The user can also download them from the Export tab."].join("\n");
+}
+
+// --- Uploaded files: team-made sets and bonus/sample lists ------------------------------------------
+async function ownUpload(ctx: ToolCtx, uploadId: number) {
+  const up = await prisma.upload.findUnique({ where: { id: uploadId } });
+  if (!up || up.projectId !== ctx.projectId) throw new Error(`Upload #${uploadId} is not part of this project`);
+  return up;
+}
+
+export async function readUploadTool(ctx: ToolCtx, input: { uploadId?: number; sheet?: string; startRow?: number; rows?: number }): Promise<string> {
+  if (!input.uploadId) {
+    const ups = await prisma.upload.findMany({ where: { projectId: ctx.projectId }, orderBy: { id: "asc" } });
+    return ups.length ? ups.map((u) => `#${u.id} ${u.filename} (${u.kind}${u.parsed ? ", imported" : ""}) by ${u.createdBy}`).join("\n") : "No files uploaded.";
+  }
+  await ownUpload(ctx, input.uploadId);
+  return previewUpload(input.uploadId, input.sheet, input.startRow ?? 1, Math.min(input.rows ?? 40, 120));
+}
+
+export async function importTeamSetsTool(ctx: ToolCtx, input: TeamImportInput): Promise<string> {
+  await ownUpload(ctx, input.uploadId);
+  return (await importTeamSets(input)).summary;
+}
+
+export async function importBonusPoolTool(ctx: ToolCtx, input: BonusImportInput): Promise<string> {
+  await ownUpload(ctx, input.uploadId);
+  const r = await importBonusPool(input);
+  return `${r.summary}\n${JSON.stringify(r.pool.items.map((i) => ({ id: i.id, name: i.name, qty: i.qty, value: i.value, expiry: i.expiry })))}`;
+}
+
+export async function classifyBonusTool(ctx: ToolCtx, input: { uploadId: number; labels: Array<{ id: string; kind?: string; family?: string; exclude?: boolean; reason?: string; tiers?: string[] }> }): Promise<string> {
+  await ownUpload(ctx, input.uploadId);
+  return classifyBonus(input.uploadId, input.labels);
+}
+
+export async function applyBonusTool(
+  ctx: ToolCtx,
+  input: { uploadId: number; version?: number; bands: Array<{ tier: string; lo: number; hi: number; minItems?: number; maxItems?: number }>; requireKind?: string; maxPerKind?: Record<string, number>; label?: string },
+): Promise<string> {
+  await ownUpload(ctx, input.uploadId);
+  const r = await applyBonus(ctx.projectId, input.uploadId, { ...input, createdBy: ctx.user });
+  return [`Saved as V${r.version} (set contents unchanged, bonus added on top).`, ...r.report, ...(r.ok ? [] : ["NOT all bands met — adjust bands or labels and run again, or tell the user the trade-off."])].join("\n");
 }

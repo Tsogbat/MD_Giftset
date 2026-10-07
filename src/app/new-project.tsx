@@ -11,6 +11,7 @@ export default function NewProject() {
     const f = new FormData(e.currentTarget);
     setBusy(true);
     setError("");
+    const files = (f.getAll("files") as File[]).filter((x) => x.size > 0);
     const res = await fetch("/api/projects", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -21,6 +22,7 @@ export default function NewProject() {
         description: f.get("description"),
         notes: f.get("notes"),
         autoBuild: f.get("autoBuild") === "on",
+        start: files.length === 0,
       }),
     });
     const j = await res.json();
@@ -28,6 +30,16 @@ export default function NewProject() {
       setError(j.error ?? "Could not create the project");
       setBusy(false);
       return;
+    }
+    if (files.length) {
+      // upload first, so the agent's first turn can already read them
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const u = await fetch(`/api/projects/${j.id}/uploads`, { method: "POST", body: fd });
+        if (!u.ok) setError(`${file.name}: ${(await u.json()).error ?? "upload failed"}`);
+      }
+      await fetch(`/api/projects/${j.id}/turn`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "brief" }) });
     }
     router.push(`/projects/${j.id}`);
   }
@@ -54,6 +66,13 @@ export default function NewProject() {
       <label>
         Notes (optional)
         <textarea name="notes" rows={2} placeholder="Anything the agent should know: team sets to include, things to avoid, deadline…" />
+      </label>
+      <label>
+        Files (optional .xlsx)
+        <input type="file" name="files" accept=".xlsx" multiple />
+        <span className="muted small" style={{ fontWeight: 400 }}>
+          Team-made sets to include as given, or a sample / bonus list.
+        </span>
       </label>
       <label className="check">
         <input type="checkbox" name="autoBuild" /> Build right after my answers (skip the proposal step)

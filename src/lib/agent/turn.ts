@@ -56,7 +56,7 @@ function mcpConfig(projectId: number, user: string): string {
 function promptFor(input: UserInput, user: string, brief: Brief): string {
   switch (input.kind) {
     case "brief":
-      return `New project from ${user}. Brief:\n${JSON.stringify(brief, null, 2)}\n\nStart: call get_project, rule_memory, list_presets and look at the relevant catalog areas, then ask your first round of questions.`;
+      return `New project from ${user}. Brief:\n${JSON.stringify(brief, null, 2)}\n\nStart: call get_project, rule_memory, list_presets and look at the relevant catalog areas, and read_upload for any attached files, then ask your first round of questions.`;
     case "answers":
       return `${user} answered:\n${input.answers.map((a) => `- ${a.id} "${a.question}": ${typeof a.value === "string" ? a.value : JSON.stringify(a.value)}`).join("\n")}\n\nContinue: ask the next round only if something important is still open, otherwise design the plan (save_plan, check_pools) and propose it${brief.autoBuild ? " — autoBuild is on, so build and review it right away" : ""}.`;
     case "approve":

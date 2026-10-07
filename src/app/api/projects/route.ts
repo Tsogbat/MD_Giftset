@@ -10,7 +10,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const b = (await req.json()) as Partial<Brief>;
+  const b = (await req.json()) as Partial<Brief> & { start?: boolean };
   if (!b.name?.trim() || !b.description?.trim()) return Response.json({ error: "Name and description are required." }, { status: 400 });
   const who = await currentUser();
   const brief: Brief = {
@@ -22,7 +22,10 @@ export async function POST(req: Request) {
     autoBuild: !!b.autoBuild,
   };
   const project = await createProject(brief, who);
-  await lockProject(project.id, who);
-  void runAgentTurn(project.id, who, { kind: "brief" });
+  // start=false: the page uploads the attached files first, then starts the first turn itself
+  if (b.start !== false) {
+    await lockProject(project.id, who);
+    void runAgentTurn(project.id, who, { kind: "brief" });
+  }
   return Response.json({ id: project.id, slug: project.slug }, { status: 201 });
 }

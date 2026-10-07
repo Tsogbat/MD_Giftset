@@ -12,7 +12,15 @@ export type Turn = { id: number; seq: number; role: string; author: string; kind
 export type VersionRow = { id: number; number: number; label: string | null; createdBy: string; createdAt: string; committed: boolean; checks: Check[] | null; finance: { rows: FinanceRow[]; total: FinanceRow } | null; seed: number | null; _count: { sets: number } };
 
 export type ProjectData = {
-  project: { id: number; name: string; status: string; lockedBy: string | null; brief: Record<string, unknown>; snapshot: { id: number; takenAt: string; products: number } | null };
+  project: {
+    id: number;
+    name: string;
+    status: string;
+    lockedBy: string | null;
+    brief: Record<string, unknown>;
+    snapshot: { id: number; takenAt: string; products: number } | null;
+    uploads: Array<{ id: number; filename: string; kind: string; createdBy: string }>;
+  };
   turns: Turn[];
   versions: VersionRow[];
   plan: Plan | null;

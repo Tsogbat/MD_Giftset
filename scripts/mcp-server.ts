@@ -142,4 +142,87 @@ server.registerTool(
   safe(async (a) => text(await T.exportVersion(ctx, a))),
 );
 
+const colRef = z.union([z.string(), z.number()]).describe("Header text, column letter (A, AB) or 1-based number");
+
+server.registerTool(
+  "read_upload",
+  {
+    description: "Without uploadId: list the project's uploaded files. With uploadId: sheet names and numbered rows (tab-separated) so you can find the header row and columns.",
+    inputSchema: { uploadId: z.number().int().optional(), sheet: z.string().optional(), startRow: z.number().int().optional(), rows: z.number().int().optional() },
+  },
+  safe(async (a) => text(await T.readUploadTool(ctx, a))),
+);
+
+server.registerTool(
+  "import_team_sets",
+  {
+    description:
+      "Read team-made sets from an uploaded sheet: the set column names a set on its first row and is blank below. They are then included in every version EXACTLY as given (never changed), checked against Odoo, and their units are kept away from the solver.",
+    inputSchema: {
+      uploadId: z.number().int(),
+      sheet: z.string(),
+      headerRow: z.number().int(),
+      setColumn: colRef,
+      codeColumn: colRef,
+      qtyColumn: colRef.optional(),
+      nameColumn: colRef.optional(),
+      priceColumn: colRef.optional(),
+      totalColumn: colRef.optional(),
+      tier: z.string().describe('Tier label, e.g. "Red Box 299k"'),
+      prefix: z.string().describe('Set code prefix, e.g. "RB299"'),
+      sellPrice: z.number().optional().describe("Box price the customer pays"),
+    },
+  },
+  safe(async (a) => text(await T.importTeamSetsTool(ctx, a))),
+);
+
+server.registerTool(
+  "import_bonus_pool",
+  {
+    description: "Read a bonus/sample list (items given free on top of the sets). value × rate = ₮ value (e.g. rate 3.24 for Korean won). Returns the items with ids for classify_bonus.",
+    inputSchema: {
+      uploadId: z.number().int(),
+      sheet: z.string(),
+      headerRow: z.number().int(),
+      nameColumn: colRef,
+      qtyColumn: colRef,
+      valueColumn: colRef,
+      rate: z.number(),
+      codeColumn: colRef.optional(),
+      barcodeColumn: colRef.optional(),
+      expiryColumn: colRef.optional(),
+    },
+  },
+  safe(async (a) => text(await T.importBonusPoolTool(ctx, a))),
+);
+
+server.registerTool(
+  "classify_bonus",
+  {
+    description: "Label bonus items: kind (food, beauty, lip, nail, warmer…), family (variants of one product share it; never two in a set), exclude + reason (cheap-looking, one-gender, expired), tiers (only these tiers).",
+    inputSchema: {
+      uploadId: z.number().int(),
+      labels: z.array(z.object({ id: z.string(), kind: z.string().optional(), family: z.string().optional(), exclude: z.boolean().optional(), reason: z.string().optional(), tiers: z.array(z.string()).optional() })),
+    },
+  },
+  safe(async (a) => text(await T.classifyBonusTool(ctx, a))),
+);
+
+server.registerTool(
+  "apply_bonus",
+  {
+    description:
+      "Balance the bonus items onto a version's sets (contents unchanged) and save the result as a new version. bands per tier (tier = the set's tier label as shown in inspect_sets), e.g. 15000–20000. requireKind puts one of that kind in every set (e.g. food); maxPerKind caps a kind per set (e.g. {lip:1}).",
+    inputSchema: {
+      uploadId: z.number().int(),
+      version: z.number().int().optional(),
+      bands: z.array(z.object({ tier: z.string(), lo: z.number(), hi: z.number(), minItems: z.number().int().optional(), maxItems: z.number().int().optional() })),
+      requireKind: z.string().optional(),
+      maxPerKind: z.record(z.string(), z.number()).optional(),
+      label: z.string().optional(),
+    },
+  },
+  safe(async (a) => text(await T.applyBonusTool(ctx, a))),
+);
+
 await server.connect(new StdioServerTransport());
