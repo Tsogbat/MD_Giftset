@@ -84,12 +84,11 @@ export function decode(buf: Buffer, contentType: string | null): string {
   return utf8.includes("�") ? new TextDecoder("euc-kr").decode(buf) : utf8;
 }
 
-/** Parse "W*H*D" (mm) into dimensions sorted longest first. "미입력" = not entered. */
+/** Parse "W*H*D" (mm) into dimensions sorted longest first; undefined unless three sizes are given
+ *  ("미입력" = not entered). Same rule as parse_dims in gift_bundles.py. */
 export function parseDims(raw: string | undefined): [number, number, number] | undefined {
-  if (!raw || /미입력/.test(raw)) return undefined;
-  const nums = raw.split(/[*xX×]/).map((s) => Number(s.replace(/[^\d.]/g, "")));
-  if (nums.length < 2 || nums.some((n) => !Number.isFinite(n) || n <= 0)) return undefined;
-  while (nums.length < 3) nums.push(1);
+  const nums = (raw ?? "").match(/\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+  if (nums.length < 3 || Math.min(...nums.slice(0, 3)) <= 0) return undefined;
   const d = nums.slice(0, 3).sort((a, b) => b - a);
   return [d[0], d[1], d[2]];
 }

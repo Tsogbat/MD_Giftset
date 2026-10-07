@@ -36,3 +36,6 @@ table { border-collapse: collapse; width: 100%; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { font-weight: 600; color: var(--muted); font-size: 13px; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
+img.ph { transition: transform .15s ease; transform-origin: left center; position: relative; z-index: 1; background: #fff; border-radius: 6px; }
+img.ph:hover, img.ph:focus { transform: scale(4.2); z-index: 20; box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+@media (prefers-reduced-motion: reduce) { img.ph { transition: none; } }
