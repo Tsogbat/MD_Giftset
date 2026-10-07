@@ -15,3 +15,8 @@ export async function currentUser(): Promise<string> {
   }
   return env("DEFAULT_USER") ?? "This PC";
 }
+
+/** True when the request came through the office-network gateway (it signs people in). */
+export async function viaLan(): Promise<boolean> {
+  return (await headers()).get("x-gs-lan") === "1";
+}

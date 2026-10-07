@@ -26,6 +26,31 @@ export default function Workspace({ projectId, me }: { projectId: number; me: st
     return () => clearInterval(t);
   }, [load, running]);
 
+  // who else has this project open (office network)
+  const [others, setOthers] = useState<string[]>([]);
+  useEffect(() => {
+    const sid = Math.random().toString(36).slice(2, 12) + Date.now().toString(36); // not randomUUID: LAN pages are plain http
+    let stop = false;
+    const ping = async () => {
+      try {
+        const r = await fetch(`/api/projects/${projectId}/presence`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sid }) });
+        if (r.ok && !stop) setOthers((await r.json()).others);
+      } catch {
+        /* offline for a moment */
+      }
+    };
+    ping();
+    const t = setInterval(ping, 15_000);
+    const leave = () => void fetch(`/api/projects/${projectId}/presence?sid=${sid}`, { method: "DELETE", keepalive: true }).catch(() => {});
+    window.addEventListener("pagehide", leave);
+    return () => {
+      stop = true;
+      clearInterval(t);
+      window.removeEventListener("pagehide", leave);
+      leave();
+    };
+  }, [projectId]);
+
   const latest = data?.versions[0]?.number ?? null;
   const shown = versionNo ?? latest;
   useEffect(() => {
@@ -53,6 +78,7 @@ export default function Workspace({ projectId, me }: { projectId: number; me: st
           <h1>{p.name}</h1>
           {p.lockedBy ? <span className="pill warn">● agent working{p.lockedBy !== me ? ` for ${p.lockedBy}` : ""}</span> : null}
         </div>
+        {others.length ? <p className="small muted presence">Also open: {others.join(", ")}</p> : null}
         <AgentPanel data={data} projectId={projectId} me={me} reload={load} openVersion={(n) => { setVersionNo(n); setTab("Sets"); }} />
       </aside>
       <section className="ws-main card">

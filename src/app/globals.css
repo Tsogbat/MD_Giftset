@@ -100,3 +100,6 @@ table.recipes td { font-size: 13px; }
 .btn.small { font-size: 13px; padding: 4px 10px; text-align: center; }
 .btn.disabled { opacity: .5; pointer-events: none; }
 .uploads { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; padding: 4px 0; color: var(--muted); }
+.topbar .me { margin-left: auto; }
+.topbar .me a { color: var(--muted); }
+.presence { margin: 2px 0 8px; }

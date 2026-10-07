@@ -32,6 +32,17 @@ export async function lockProject(projectId: number, user: string): Promise<void
   }
 }
 
+/**
+ * Agent turns run inside the app process, so when the app (re)starts none can still be running: release the
+ * locks and mark the interrupted turns, instead of the project looking busy until the stale-lock timeout.
+ */
+export async function recoverInterruptedTurns(): Promise<void> {
+  // only what an earlier process left behind (the dev server can call this again without restarting)
+  const started = new Date(Date.now() - process.uptime() * 1000);
+  await prisma.turn.updateMany({ where: { role: "agent", kind: "running", createdAt: { lt: started } }, data: { kind: "error", payload: { message: "The app was restarted while the agent was working. Send your last message again to continue." } } });
+  await prisma.project.updateMany({ where: { lockedBy: { not: null }, lockedAt: { lt: started } }, data: { lockedBy: null, lockedAt: null } });
+}
+
 async function unlock(projectId: number) {
   await prisma.project.update({ where: { id: projectId }, data: { lockedBy: null, lockedAt: null } });
 }

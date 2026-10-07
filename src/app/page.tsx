@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { claudeAuth } from "@/lib/ai/claude";
 import { latestSnapshot } from "@/lib/snapshot";
+import { whoIsOn } from "@/lib/presence";
 import NewProject from "./new-project";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,10 @@ export default async function Home() {
                   </Link>
                   <div className="muted small">{(p.brief as { description?: string })?.description?.slice(0, 120)}</div>
                 </td>
-                <td className="small">{p.lockedBy ? <span className="warn">● agent running for {p.lockedBy}</span> : STATUS[p.status] ?? p.status}</td>
+                <td className="small">
+                  {p.lockedBy ? <span className="warn">● agent running for {p.lockedBy}</span> : STATUS[p.status] ?? p.status}
+                  {whoIsOn(p.id).length ? <div className="muted">open: {whoIsOn(p.id).join(", ")}</div> : null}
+                </td>
                 <td className="small muted">{p._count.versions ? `${p._count.versions} version${p._count.versions > 1 ? "s" : ""}` : ""}</td>
                 <td className="small muted">
                   {p.createdBy} · {p.updatedAt.toISOString().slice(0, 10)}
